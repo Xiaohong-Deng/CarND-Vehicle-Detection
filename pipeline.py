@@ -7,6 +7,7 @@ import glob
 import time
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from skimage.feature import hog
 from sklearn.utils import shuffle
 import pipeline_helpers
@@ -25,8 +26,22 @@ def load_model():
     with open('model.p', mode='rb') as f:
       clf = pickle.load(f)
   except FileNotFoundError:
-
+    features, labels = load_training_data()
+    feat_scaler = StandardScaler().fit(features)
+    scaled_feats = feat_scaler.transform(features)
+    features, labels = shuffle(scaled_feats, labels)
+    features_train, features_valid, labels_train, labels_valid = train_test_split(features, labels, test_size=0.2)
     clf = LinearSVC()
+    t = time.time()
+    svc.fit(X_train, y_train)
+    t2 = time.time()
+    print(round(t2-t, 2), 'Seconds to train SVC...')
+    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
+
+    with open('model.p', mode='wb') as f:
+      pickle.dump(clf, f)
+
+  return clf
 
 def load_training_data():
   features_vehicles, labels_vehicles = load_data()
