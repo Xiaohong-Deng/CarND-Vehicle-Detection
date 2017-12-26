@@ -43,7 +43,7 @@ def load_data(is_vehicle=True):
 
   imgs = load_imgs(img_fns)
 
-  features = extract_features(img_fns, img_format='PNG', color_space=colorspace, orient=orient,
+  features = extract_features(imgs, img_format='PNG', color_space=colorspace, orient=orient,
                                 pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
                                 hog_channel=hog_channel, spatial_feat=False, hist_feat=False)
   if is_vehicle:
@@ -110,7 +110,7 @@ def load_imgs(img_fns):
       pickle.dump(imgs, f)
 
   return imgs
-  
+
 filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
 image = mpimg.imread(filename)
 

@@ -58,10 +58,9 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
     # Create a list to append feature vectors to
     features = []
     # Iterate through the list of images
-    for file in imgs:
-        file_features = []
+    for image in imgs:
+        image_features = []
         # Read in each one by one
-        image = mpimg.imread(file)
         # apply color conversion if other than 'RGB'
         if color_space != 'RGB':
             if color_space == 'HSV':
@@ -81,11 +80,11 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
 
         if spatial_feat == True:
             spatial_features = bin_spatial(feature_image, size=spatial_size)
-            file_features.append(spatial_features)
+            image_features.append(spatial_features)
         if hist_feat == True:
             # Apply color_hist()
             hist_features = color_hist(feature_image, nbins=hist_bins)
-            file_features.append(hist_features)
+            image_features.append(hist_features)
         if hog_feat == True:
         # Call get_hog_features() with vis=False, feature_vec=True
             if hog_channel == 'ALL':
@@ -99,8 +98,8 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
                 hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
                             pix_per_cell, cell_per_block, vis=False, feature_vec=True)
             # Append the new feature vector to the features list
-            file_features.append(hog_features)
-        features.append(np.concatenate(file_features))
+            image_features.append(hog_features)
+        features.append(np.concatenate(image_features))
     # Return list of feature vectors
     return features
 
