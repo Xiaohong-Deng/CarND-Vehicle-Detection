@@ -41,6 +41,8 @@ def load_data(is_vehicle=True):
   else:
     img_fns = get_non_vehicle_fns()
 
+  imgs = load_imgs(img_fns)
+
   features = extract_features(img_fns, img_format='PNG', color_space=colorspace, orient=orient,
                                 pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
                                 hog_channel=hog_channel, spatial_feat=False, hist_feat=False)
@@ -94,6 +96,21 @@ def get_non_vehicle_fns():
 
   return img_fns
 
+def load_imgs(img_fns):
+  try:
+    with open('images.p', mode='rb') as f:
+      imgs = pickle.load(f)
+  except FileNotFoundError:
+    imgs = []
+    for fn in img_fns:
+      image = mpimg.imread(fn)
+      imgs.append(image)
+
+    with open('images.p', mode='wb') as f:
+      pickle.dump(imgs, f)
+
+  return imgs
+  
 filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
 image = mpimg.imread(filename)
 
