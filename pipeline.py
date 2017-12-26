@@ -17,6 +17,8 @@ orient = 11
 pix_per_cell = 16
 cell_per_block = 2
 hog_channel = "ALL"
+block_per_row = 64 / pix_per_cell - cell_per_block + 1
+feat_per_sample = (block_per_row ** 2) * (cell_per_block ** 2) * orient
 
 def load_model():
   try:
