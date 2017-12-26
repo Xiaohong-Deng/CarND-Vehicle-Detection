@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from skimage.feature import hog
 from sklearn.utils import shuffle
 import pipeline_helpers
-%matplotlib inline
+# %matplotlib inline
 
 colorspace = 'YUV'
 orient = 11
@@ -54,7 +54,7 @@ def load_data(is_vehicle=True):
   return features, labels
 
 def get_vehicle_fns(prefix='./vehicle-detection-vehicles/vehicles/',
-                      subfolders=['GTI_Far', 'GTI_Left', 'GTI_MiddleClose', 'GTI_Right', 'KITTI_extracted'],
+                      subfolders=['GTI_Far/', 'GTI_Left/', 'GTI_MiddleClose/', 'GTI_Right/', 'KITTI_extracted/'],
                       indices_per_folder=[{'start': 0, 'end': 974}, {'start': 9, 'end': 974}, {'start': 0, 'end': 494}, {'start': 1, 'end': 5969}],
                       index_len=4, padding='0'):
   img_fns = []
@@ -64,9 +64,9 @@ def get_vehicle_fns(prefix='./vehicle-detection-vehicles/vehicles/',
     indices = indices_per_folder[idx]
     for i in range(indices['start'], indices['end'] + 1):
       index = str(i)
-      num_of_padding = 4 - len(index)
+      num_of_padding = index_len - len(index)
       paddings = padding * num_of_padding
-      filename = prefix + sf + 'image' + paddings + '.png'
+      filename = prefix + sf + 'image' + paddings + index + '.png'
       img_fns.append(filename)
 
   for i in range(indices['start'], indices['end'] + 1):
@@ -76,16 +76,16 @@ def get_vehicle_fns(prefix='./vehicle-detection-vehicles/vehicles/',
   return img_fns
 
 def get_non_vehicle_fns(prefix='./vehicle-detection-non-vehicles/non-vehicles/',
-                          subfolders=['Extras', 'GTI'],
+                          subfolders=['Extras/', 'GTI/'],
                           file_prefix=['extra', 'image'],
                           indices_per_folder=[{'start': 1, 'end': 5766}, {'start': 1, 'end': 3900}]):
   img_fns = []
 
-  for idx in range(subfolders):
+  for idx in range(len(subfolders)):
     sf = subfolders[idx]
     fp = file_prefix[idx]
     indices = indices_per_folder[idx]
-    for i in range(indices['start'], indices['end']):
+    for i in range(indices['start'], indices['end'] + 1):
       filename = prefix + sf + fp + str(i) + '.png'
       img_fns.append(filename)
 
