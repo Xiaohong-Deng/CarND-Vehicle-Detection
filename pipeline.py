@@ -53,13 +53,10 @@ def load_data(is_vehicle=True):
 
   return features, labels
 
-def get_vehicle_fns():
-  prefix = './vehicle-detection-vehicles/vehicles/'
-  subfolders = ['GTI_Far', 'GTI_Left', 'GTI_MiddleClose', 'GTI_Right', 'KITTI_extracted']
-  indices_per_folder = [{'start': 0, 'end': 974}, {'start': 9, 'end': 974}, {'start': 0, 'end': 494}, {'start': 1, 'end': 5969}]
-  index_len = 4
-  padding = '0'
-
+def get_vehicle_fns(prefix='./vehicle-detection-vehicles/vehicles/',
+                      subfolders=['GTI_Far', 'GTI_Left', 'GTI_MiddleClose', 'GTI_Right', 'KITTI_extracted'],
+                      indices_per_folder=[{'start': 0, 'end': 974}, {'start': 9, 'end': 974}, {'start': 0, 'end': 494}, {'start': 1, 'end': 5969}],
+                      index_len=4, padding='0'):
   img_fns = []
 
   for idx in range(len(subfolders) - 1):
@@ -78,12 +75,10 @@ def get_vehicle_fns():
 
   return img_fns
 
-def get_non_vehicle_fns():
-  prefix = './vehicle-detection-non-vehicles/non-vehicles/'
-  subfolders = ['Extras', 'GTI']
-  file_prefix = ['extra', 'image']
-  indices_per_folder = [{'start': 1, 'end': 5766}, {'start': 1, 'end': 3900}]
-
+def get_non_vehicle_fns(prefix='./vehicle-detection-non-vehicles/non-vehicles/',
+                          subfolders=['Extras', 'GTI'],
+                          file_prefix=['extra', 'image'],
+                          indices_per_folder=[{'start': 1, 'end': 5766}, {'start': 1, 'end': 3900}]):
   img_fns = []
 
   for idx in range(subfolders):
