@@ -5,15 +5,15 @@ import numpy as np
 import cv2
 import glob
 import time
-from os import walk, path
-from sklearn.svm import LinearSVC, SVC
+from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from skimage.feature import hog
 from sklearn.utils import shuffle
 import pipeline_helpers as ph
 from skimage.feature import hog
-# %matplotlib inline
+from importlib import reload
+%matplotlib inline
 
 colorspace = 'YUV'
 orient = 9
@@ -23,16 +23,15 @@ hog_channel = "ALL"
 block_per_row = 64 / pix_per_cell - cell_per_block + 1
 feat_per_sample = (block_per_row ** 2) * (cell_per_block ** 2) * orient
 
-param_dist = {'C': np.logspace(-3, 2, 6)}
-
 def load_model():
   try:
     with open('model.p', mode='rb') as f:
-      clf = pickle.load(f)
+      clf_params = pickle.load(f)
+      clf, feat_scaler = clf_params['clf'], clf_params['feat_scaler']
   except FileNotFoundError:
     features, labels = load_training_data()
     print('number of samples: ', len(features))
-    print('shape of features: ', features.shape)
+    print('shape of features: ', features[0].shape)
     print('shape of labels: ', labels.shape)
     feat_scaler = StandardScaler().fit(features)
     scaled_feats = feat_scaler.transform(features)
@@ -52,10 +51,13 @@ def load_model():
     print('Test Accuracy of SVC = ', acc)
 
     if acc >= 0.95:
+      clf_params = {}
+      clf_params['clf'] = clf
+      clf_params['feat_scaler'] = feat_scaler
       with open('model.p', mode='wb') as f:
-        pickle.dump(clf, f)
+        pickle.dump(clf_params, f)
 
-  return clf
+  return clf, feat_scaler
 
 def load_training_data():
   imgs, labels = load_imgs()
@@ -115,10 +117,13 @@ def load_imgs():
 # print(np.min(image))
 # yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
 # print(type(np.max(yuv_image)))
-fns = glob.glob('./vehicle-detection-vehicles/vehicles/GTI_Far/*.png')
-print(len(fns))
-clf = load_model()
-
+clf, feat_scaler = load_model()
+image = mpimg.imread('./test_images/test1.jpg')
+img_tosearch = ph.get_img_tosearch(image, 410, 656)
+hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, 410, clf, feat_scaler, pix_per_cell=pix_per_cell,
+                                    cell_per_block=cell_per_block)
+bbimg = ph.draw_boxes(image, bboxes)
 # filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
 # image = mpimg.imread(filename)
 #
@@ -126,5 +131,5 @@ clf = load_model()
 # scaled = np.uint8(image * 255)
 # print(scaled.shape)
 #
-# plt.figure(figsize=(1,1))
-# plt.imshow(scaled)
+plt.figure(figsize=(1280,720))
+plt.imshow(bbimg)

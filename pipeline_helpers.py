@@ -6,11 +6,35 @@ from skimage.feature import hog
 # Define a function to return HOG features and visualization
 def convert_color(img, conv='RGB2YCrCb'):
     if conv == 'RGB2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+      return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
     if conv == 'BGR2YCrCb':
-        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+      return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
     if conv == 'RGB2LUV':
-        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+      return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    if conv== 'RGB2YUV':
+      return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+
+def get_img_tosearch(img, ystart, ystop, conv='RGB2YUV', img_format='JPG'):
+  img_tosearch = img[ystart:ystop, :, :]
+  if img_format == 'PNG':
+    img_tosearch = np.uint8(img_tosearch * 255)
+  img_tosearch = convert_color(img_tosearch, conv=conv)
+
+  return img_tosearch
+
+def get_image_hog(img_tosearch, orient=9,
+                    pix_per_cell=8, cell_per_block=2):
+
+  ch1 = img_tosearch[:, :, 0]
+  ch2 = img_tosearch[:, :, 1]
+  ch3 = img_tosearch[:, :, 2]
+
+  hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+  hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+  hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+
+  hogs = (hog1, hog2, hog3)
+  return hogs
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block,
                         vis=False, feature_vec=True):
@@ -53,7 +77,7 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
 
 # Define a function to extract features from a list of images
 # Have this function call bin_spatial() and color_hist()
-def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32, 32),
+def extract_features(imgs, img_format='JPG', color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
                         spatial_feat=True, hist_feat=True, hog_feat=True):
@@ -105,6 +129,42 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
     # Return list of feature vectors
     return features
 
+def one_shot_sliding_window(hogs, img_tosearch, ystart, clf, feat_scaler, window_size=64, pix_per_cell=8,
+                              cell_per_block=2, cells_per_step=2):
+  bboxes = []
+
+  hog1, hog2, hog3 = hogs
+
+  nxblocks = (img_tosearch.shape[1] // pix_per_cell) - cell_per_block + 1
+  nyblocks = (img_tosearch.shape[0] // pix_per_cell) - cell_per_block + 1
+
+  nblocks_per_window = (window_size // pix_per_cell) - cell_per_block + 1
+  nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+  nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+  print(nxsteps)
+  print(type(nxsteps))
+  for xb in range(nxsteps):
+    for yb in range(nysteps):
+      ypos = yb * cells_per_step
+      xpos = xb * cells_per_step
+
+      hog_feat1 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat2 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat3 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+      xleft = xpos * pix_per_cell
+      ytop = ypos * pix_per_cell
+
+      # sub_img = cv2.resize(img_tosearch[ytop:ytop + window_size, xleft:xleft + window_size], (64, 64))
+      features = feat_scaler.transform(hog_features.reshape(1, -1))
+      prediction = clf.predict(features)
+
+      if prediction == 1:
+        bbox = ((xleft, ytop + ystart), (xleft + window_size, ytop + ystart + window_size))
+        bboxes.append(bbox)
+
+  return bboxes
 # Define a function that takes an image,
 # start and stop positions in both x and y,
 # window size (x and y dimensions),
