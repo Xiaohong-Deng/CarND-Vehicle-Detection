@@ -5,21 +5,25 @@ import numpy as np
 import cv2
 import glob
 import time
-from sklearn.svm import LinearSVC
+from os import walk, path
+from sklearn.svm import LinearSVC, SVC
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from skimage.feature import hog
 from sklearn.utils import shuffle
-import pipeline_helpers
+import pipeline_helpers as ph
+from skimage.feature import hog
 # %matplotlib inline
 
 colorspace = 'YUV'
-orient = 11
+orient = 9
 pix_per_cell = 16
 cell_per_block = 2
 hog_channel = "ALL"
 block_per_row = 64 / pix_per_cell - cell_per_block + 1
 feat_per_sample = (block_per_row ** 2) * (cell_per_block ** 2) * orient
+
+param_dist = {'C': np.logspace(-3, 2, 6)}
 
 def load_model():
   try:
@@ -27,108 +31,100 @@ def load_model():
       clf = pickle.load(f)
   except FileNotFoundError:
     features, labels = load_training_data()
+    print('number of samples: ', len(features))
+    print('shape of features: ', features.shape)
+    print('shape of labels: ', labels.shape)
     feat_scaler = StandardScaler().fit(features)
     scaled_feats = feat_scaler.transform(features)
     features, labels = shuffle(scaled_feats, labels)
     features_train, features_valid, labels_train, labels_valid = train_test_split(features, labels, test_size=0.2)
     clf = LinearSVC()
-    t = time.time()
-    svc.fit(X_train, y_train)
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to train SVC...')
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 
-    with open('model.p', mode='wb') as f:
-      pickle.dump(clf, f)
+    # random_search = GridSearchCV(clf, param_grid=param_dist)
+    # random_search.fit(features, labels)
+    # best_C = random_search.best_params_['C']
+
+    t = time.time()
+    clf.fit(features_train, labels_train)
+    t2 = time.time()
+    acc = round(clf.score(features_valid, labels_valid), 4)
+    print(round(t2-t, 2), 'Seconds to train SVC...')
+    print('Test Accuracy of SVC = ', acc)
+
+    if acc >= 0.95:
+      with open('model.p', mode='wb') as f:
+        pickle.dump(clf, f)
 
   return clf
 
 def load_training_data():
-  features_vehicles, labels_vehicles = load_data()
-  features_non_vehicles, labels_non_vehicles = load_data(is_vehicle=False)
+  imgs, labels = load_imgs()
 
-  features = np.concatenate((features_vehicles, features_non_vehicles))
-  labels = np.concatenate((labels_vehicles, labels_non_vehicles))
-
-  return features, labels
-
-def load_data(is_vehicle=True):
-  if is_vehicle:
-    img_fns = get_vehicle_fns()
-  else:
-    img_fns = get_non_vehicle_fns()
-
-  imgs = load_imgs(img_fns)
-
-  features = extract_features(imgs, img_format='PNG', color_space=colorspace, orient=orient,
+  features = ph.extract_features(imgs, img_format='PNG', color_space=colorspace, orient=orient,
                                 pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
                                 hog_channel=hog_channel, spatial_feat=False, hist_feat=False)
-  if is_vehicle:
-    labels = [1] * len(features)
-  else:
-    labels = [0] * len(features)
+
 
   return features, labels
 
-def get_vehicle_fns(prefix='./vehicle-detection-vehicles/vehicles/',
-                      subfolders=['GTI_Far/', 'GTI_Left/', 'GTI_MiddleClose/', 'GTI_Right/', 'KITTI_extracted/'],
-                      indices_per_folder=[{'start': 0, 'end': 974}, {'start': 9, 'end': 974}, {'start': 0, 'end': 494}, {'start': 1, 'end': 5969}],
-                      index_len=4, padding='0'):
+# 8792 images of vehicles
+# 8968 images of non-vehicles
+def get_img_fns(prefix='./vehicle-detection-vehicles/vehicles/',
+                    subfolders=['GTI_Far', 'GTI_Left', 'GTI_MiddleClose', 'GTI_Right', 'KITTI_extracted']):
   img_fns = []
 
-  for idx in range(len(subfolders) - 1):
-    sf = subfolders[idx]
-    indices = indices_per_folder[idx]
-    for i in range(indices['start'], indices['end'] + 1):
-      index = str(i)
-      num_of_padding = index_len - len(index)
-      paddings = padding * num_of_padding
-      filename = prefix + sf + 'image' + paddings + index + '.png'
-      img_fns.append(filename)
-
-  for i in range(indices['start'], indices['end'] + 1):
-    filename = prefix + subfolders[-1] + str(i) + '.png'
-    img_fns.append(filename)
+  for sf in subfolders:
+    file_pattern = prefix + sf + '/*.png'
+    img_fns.extend(glob.glob(file_pattern))
 
   return img_fns
 
-def get_non_vehicle_fns(prefix='./vehicle-detection-non-vehicles/non-vehicles/',
-                          subfolders=['Extras/', 'GTI/'],
-                          file_prefix=['extra', 'image'],
-                          indices_per_folder=[{'start': 1, 'end': 5766}, {'start': 1, 'end': 3900}]):
-  img_fns = []
-
-  for idx in range(len(subfolders)):
-    sf = subfolders[idx]
-    fp = file_prefix[idx]
-    indices = indices_per_folder[idx]
-    for i in range(indices['start'], indices['end'] + 1):
-      filename = prefix + sf + fp + str(i) + '.png'
-      img_fns.append(filename)
-
-  return img_fns
-
-def load_imgs(img_fns):
+def load_imgs():
   try:
     with open('images.p', mode='rb') as f:
-      imgs = pickle.load(f)
+      img_params = pickle.load(f)
+      imgs = img_params['imgs']
+      labels = img_params['labels']
   except FileNotFoundError:
+    img_fns = []
+
+    img_fns.extend(get_img_fns())
+    labels_vehicle = np.ones(len(img_fns))
+
+    img_fns.extend(get_img_fns(prefix='./vehicle-detection-non-vehicles/non-vehicles/',
+                                  subfolders=['Extras', 'GTI']))
+    labels_non_vehicle = np.zeros(len(img_fns) - labels_vehicle.shape[0])
+
+    labels = np.hstack((labels_vehicle, labels_non_vehicle))
+
     imgs = []
     for fn in img_fns:
       image = mpimg.imread(fn)
       imgs.append(image)
 
+    img_params = {}
+    img_params['imgs'] = imgs
+    img_params['labels'] = labels
     with open('images.p', mode='wb') as f:
-      pickle.dump(imgs, f)
+      pickle.dump(img_params, f)
 
-  return imgs
+  return imgs, labels
 
-filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
-image = mpimg.imread(filename)
+# image = cv2.imread('./vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png')
+# print(type(np.max(image)))
+# print(np.min(image))
+# yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+# print(type(np.max(yuv_image)))
+fns = glob.glob('./vehicle-detection-vehicles/vehicles/GTI_Far/*.png')
+print(len(fns))
+clf = load_model()
 
-print(np.max(image))
-scaled = np.uint8(image * 255)
-print(scaled.shape)
-
-plt.figure(figsize=(1,1))
-plt.imshow(scaled)
+# filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
+# image = mpimg.imread(filename)
+#
+# print(np.max(image))
+# scaled = np.uint8(image * 255)
+# print(scaled.shape)
+#
+# plt.figure(figsize=(1,1))
+# plt.imshow(scaled)

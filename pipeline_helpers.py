@@ -1,6 +1,7 @@
 import matplotlib.image as mpimg
 import numpy as np
 import cv2
+import pdb
 from skimage.feature import hog
 # Define a function to return HOG features and visualization
 def convert_color(img, conv='RGB2YCrCb'):
@@ -26,8 +27,9 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block,
         features = hog(img, orientations=orient,
                        pixels_per_cell=(pix_per_cell, pix_per_cell),
                        cells_per_block=(cell_per_block, cell_per_block),
-                       transform_sqrt=True,
+                       transform_sqrt=False,
                        visualise=vis, feature_vector=feature_vec)
+
         return features
 
 # Define a function to compute binned color features
@@ -60,6 +62,8 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
     # Iterate through the list of images
     for image in imgs:
         image_features = []
+        if img_format == 'PNG':
+          image = np.uint8(image * 255)
         # Read in each one by one
         # apply color conversion if other than 'RGB'
         if color_space != 'RGB':
@@ -74,8 +78,6 @@ def extract_features(imgs, img_format='RGB', color_space='RGB', spatial_size=(32
             elif color_space == 'YCrCb':
                 feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
         else:
-          if img_format == 'PNG':
-            image = np.uint8(image * 255)
           feature_image = np.copy(image)
 
         if spatial_feat == True:
