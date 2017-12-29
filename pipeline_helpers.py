@@ -139,8 +139,8 @@ def one_shot_sliding_window(hogs, img_tosearch, ystart, clf, feat_scaler, window
   nyblocks = (img_tosearch.shape[0] // pix_per_cell) - cell_per_block + 1
 
   nblocks_per_window = (window_size // pix_per_cell) - cell_per_block + 1
-  nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
-  nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+  nxsteps = (nxblocks - nblocks_per_window) // cells_per_step + 1
+  nysteps = (nyblocks - nblocks_per_window) // cells_per_step + 1
 
   for xb in range(nxsteps):
     for yb in range(nysteps):

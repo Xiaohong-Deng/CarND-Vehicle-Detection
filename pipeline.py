@@ -118,7 +118,7 @@ def load_imgs():
 # yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
 # print(type(np.max(yuv_image)))
 clf, feat_scaler = load_model()
-image = mpimg.imread('./test_images/test1.jpg')
+image = mpimg.imread('./test_images/test6.jpg')
 img_tosearch = ph.get_img_tosearch(image, 410, 656)
 hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
 reload(ph)
