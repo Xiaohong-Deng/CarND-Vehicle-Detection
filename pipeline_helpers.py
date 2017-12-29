@@ -141,16 +141,15 @@ def one_shot_sliding_window(hogs, img_tosearch, ystart, clf, feat_scaler, window
   nblocks_per_window = (window_size // pix_per_cell) - cell_per_block + 1
   nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
   nysteps = (nyblocks - nblocks_per_window) // cells_per_step
-  print(nxsteps)
-  print(type(nxsteps))
+
   for xb in range(nxsteps):
     for yb in range(nysteps):
       ypos = yb * cells_per_step
       xpos = xb * cells_per_step
 
       hog_feat1 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
-      hog_feat2 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
-      hog_feat3 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat2 = hog2[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat3 = hog3[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
       hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
 
       xleft = xpos * pix_per_cell
