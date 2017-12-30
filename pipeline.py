@@ -38,7 +38,6 @@ def load_model():
     features, labels = shuffle(scaled_feats, labels)
     features_train, features_valid, labels_train, labels_valid = train_test_split(features, labels, test_size=0.2)
     clf = LinearSVC()
-
     # random_search = GridSearchCV(clf, param_grid=param_dist)
     # random_search.fit(features, labels)
     # best_C = random_search.best_params_['C']
@@ -58,6 +57,16 @@ def load_model():
         pickle.dump(clf_params, f)
 
   return clf, feat_scaler
+
+# this method is used in hard-negative mining
+def conf_score_thresh(X, y_true, y_pred):
+  feat_fp = X[(y_pred - y_true)==1]
+  feat_tp = X[(y_pred == 1) & (y_true == 1)]
+  conf_scores_fp = clf.decision_function(feat_fp)
+  conf_scores_tp = clf.decision_function(feat_tp)
+  thresh = np.percentile(conf_scores_fp, 75)
+
+  return thresh
 
 def load_training_data():
   imgs, labels = load_imgs()
@@ -117,14 +126,14 @@ def load_imgs():
 # print(np.min(image))
 # yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
 # print(type(np.max(yuv_image)))
-clf, feat_scaler = load_model()
-image = mpimg.imread('./test_images/test6.jpg')
-img_tosearch = ph.get_img_tosearch(image, 410, 656)
-hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
 reload(ph)
-bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, 410, clf, feat_scaler, pix_per_cell=pix_per_cell,
+clf, feat_scaler = load_model()
+image = mpimg.imread('./test_images/test1.jpg')
+img_tosearch = ph.get_img_tosearch(image, 410, 650)
+hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, 410, pix_per_cell=pix_per_cell,
                                     cell_per_block=cell_per_block)
-bbimg = ph.draw_boxes(image, bboxes)
+# bbimg = ph.draw_boxes(image, bboxes)
 # filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
 # image = mpimg.imread(filename)
 #
@@ -132,5 +141,18 @@ bbimg = ph.draw_boxes(image, bboxes)
 # scaled = np.uint8(image * 255)
 # print(scaled.shape)
 #
+# clf.decision_function().shape
+# features, labels = load_training_data()
+# features = feat_scaler.transform(features)
+# labels_pred = clf.predict(features)
+
+# conf_scores_fp = clf.decision_function(feat_fp)
+# conf_scores_tp = clf.decision_function(feat_tp)
+# print('mean confidence for false positives is: ', np.mean(conf_scores_fp))
+# print('median confidence for false positives is: ', np.median(conf_scores_fp))
+# print('median confidence for true positive is: ', np.median(conf_scores_tp))
+# print('min confidence for true positive is: ', np.min(conf_scores_tp))
+# np.percentile(conf_scores_fp, 60)
+# np.percentile(conf_scores_tp, 3)
 plt.figure(figsize=(16,16))
-plt.imshow(bbimg)
+plt.imshow(ph.draw_boxes(image, bboxes))
