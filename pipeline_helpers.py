@@ -129,7 +129,7 @@ def extract_features(imgs, img_format='JPG', color_space='RGB', spatial_size=(32
     # Return list of feature vectors
     return features
 
-def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, window_hw=(64, 64), pix_per_cell=8,
+def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, scale, window_size=64, pix_per_cell=8,
                               cell_per_block=2, cells_per_step=2):
   bboxes = []
 
@@ -138,19 +138,18 @@ def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, window
   nxblocks = (img_tosearch.shape[1] // pix_per_cell) - cell_per_block + 1
   nyblocks = (img_tosearch.shape[0] // pix_per_cell) - cell_per_block + 1
 
-  nxblocks_per_window = (window_hw[1] // pix_per_cell) - cell_per_block + 1
-  nyblocks_per_window = (window_hw[0] // pix_per_cell) - cell_per_block + 1
-  nxsteps = (nxblocks - nxblocks_per_window) // cells_per_step + 1
-  nysteps = (nyblocks - nyblocks_per_window) // cells_per_step + 1
+  nblocks_per_window = (window_size // pix_per_cell) - cell_per_block + 1
+  nxsteps = (nxblocks - nblocks_per_window) // cells_per_step + 1
+  nysteps = (nyblocks - nblocks_per_window) // cells_per_step + 1
 
   for xb in range(nxsteps):
     for yb in range(nysteps):
       ypos = yb * cells_per_step
       xpos = xb * cells_per_step
 
-      hog_feat1 = hog1[ypos:ypos + nyblocks_per_window, xpos:xpos + nxblocks_per_window].ravel()
-      hog_feat2 = hog2[ypos:ypos + nyblocks_per_window, xpos:xpos + nxblocks_per_window].ravel()
-      hog_feat3 = hog3[ypos:ypos + nyblocks_per_window, xpos:xpos + nxblocks_per_window].ravel()
+      hog_feat1 = hog1[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat2 = hog2[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
+      hog_feat3 = hog3[ypos:ypos + nblocks_per_window, xpos:xpos + nblocks_per_window].ravel()
       hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
 
       xleft = xpos * pix_per_cell
@@ -161,7 +160,10 @@ def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, window
       prediction = clf.predict(features)
 
       if prediction == 1:
-        bbox = ((xleft, ytop + ystart), (xleft + window_hw[1], ytop + ystart + window_hw[0]))
+        xleft_draw = np.int(xleft * scale)
+        ytop_draw = np.int(ytop * scale)
+        win_draw = np.int(window_size * scale)
+        bbox = ((xleft_draw, ytop_draw + ystart), (xleft_draw + win_draw, ytop_draw + ystart + win_draw))
         bboxes.append(bbox)
 
   return bboxes
@@ -178,20 +180,21 @@ def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
     return imcopy
 
 def img_scaled(image, scale):
-  pass
+  imshape = image.shape
+  img_resized = cv2.resize(image, (np.int(imshape[1] / scale), np.int(imshape[0] / scale)))
 
-# scale params should be of the form {scale_coeff: {(ystart1, ystop1): [window_hw1, [window_hw2, ...]], [(ystart2, ystop2): [window_hw1, [window_hw2, ...]]]}
+  return img_resized
+
+# scale params should be of the form {scale_coeff1: ((ystart1, ystop1), window_size1), [scale_coeff2: ((ystart, ystop), window_size2), ...]}
 def multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=9, pix_per_cell=8, cell_per_block=2):
-  for scale in scale_params:
-    for sub_img in scale_params[scale]:
-      ystart, ystop, window_hws = sub_img[0], sub_img[1], scale_params[scale][sub_img]
-      img_tosearch = get_img_tosearch(image, ystart, ystop)
-      if scale != 1:
-        img_tosearch = img_scaled(img_tosearch, scale)
-      for window_hw in window_hw2:
-        hogs = get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
-        bboxes = one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, pix_per_cell=pix_per_cell,
+  for scale, params in scale_params.items():
+    ystart, ystop, window_size = params[0], params[1], params[2]
+    img_tosearch = get_img_tosearch(image, ystart, ystop)
+    if scale != 1:
+      img_tosearch = img_scaled(img_tosearch, scale)
+    hogs = get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+    bboxes = one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, scale, window_size=window_size, pix_per_cell=pix_per_cell,
                                             cell_per_block=cell_per_block)
-        image = draw_boxes(image, bboxes)
+    image = draw_boxes(image, bboxes)
 
   return image

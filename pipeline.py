@@ -22,6 +22,7 @@ cell_per_block = 2
 hog_channel = "ALL"
 block_per_row = 64 / pix_per_cell - cell_per_block + 1
 feat_per_sample = (block_per_row ** 2) * (cell_per_block ** 2) * orient
+scale_params = {1: (410, 474, 64), 1.5: (410, 650, 64), 2: (410, 650, 64)}
 
 def load_model():
   try:
@@ -129,10 +130,11 @@ def load_imgs():
 reload(ph)
 clf, feat_scaler = load_model()
 image = mpimg.imread('./test_images/test1.jpg')
-img_tosearch = ph.get_img_tosearch(image, 410, 650)
-hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
-bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, 410, pix_per_cell=pix_per_cell,
-                                    cell_per_block=cell_per_block)
+bbimage = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+# img_tosearch = ph.get_img_tosearch(image, 410, 650)
+# hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+# bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, 410, pix_per_cell=pix_per_cell,
+#                                     cell_per_block=cell_per_block)
 # bbimg = ph.draw_boxes(image, bboxes)
 # filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
 # image = mpimg.imread(filename)
@@ -155,4 +157,4 @@ bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, 410, p
 # np.percentile(conf_scores_fp, 60)
 # np.percentile(conf_scores_tp, 3)
 plt.figure(figsize=(16,16))
-plt.imshow(ph.draw_boxes(image, bboxes))
+plt.imshow(bbimage)
