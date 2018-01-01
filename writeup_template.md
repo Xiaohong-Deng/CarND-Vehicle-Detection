@@ -1,9 +1,4 @@
-## Writeup Template
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
-
----
-
-**Vehicle Detection Project**
+# **Vehicle Detection Project**
 
 The goals / steps of this project are the following:
 
@@ -15,9 +10,9 @@ The goals / steps of this project are the following:
 * Estimate a bounding box for vehicles detected.
 
 [//]: # (Image References)
-[image1]: ./examples/car_not_car.png
-[image2]: ./examples/HOG_example.jpg
-[image3]: ./examples/sliding_windows.jpg
+[image1]: ./output_images/bboxed_test1.jpg
+[image2]: ./output_images/bboxed_test2.jpg
+[image3]: ./output_images/bboxed_test3.jpg
 [image4]: ./examples/sliding_window.jpg
 [image5]: ./examples/bboxes_and_heat.png
 [image6]: ./examples/labels_map.png
@@ -38,40 +33,59 @@ You're reading it!
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in the first code cell of the IPython notebook (or in lines # through # of the file called `some_file.py`).  
+The code for this step is contain in the file 'pipeline.py'. It happens in the method `load_training_data()` which employs a few other helper methods.
 
-I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
+The code used to extract HOG features is contained in the file `pipeline_helpers.py`. Method is called `extract_features`. Alternatively you can also extract spatial features or histogram features alongside with HOG features.
 
-![alt text][image1]
+But before extracting HOG features you must load all the images and labels to the memory. I first extracted and accumulated all the file names for the images, then I load the images according to them. After that I pickled the image matrices so next time I can load the images directly all at once.
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
-
-Here is an example using the `YCrCb` color space and HOG parameters of `orientations=8`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
-
-
-![alt text][image2]
+The rest is obvious. You feed the `extract_features` along with all the arguments specified.
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+I used `YUV` channel, orient=11, pixel_per_cell=16, cell_per_block=2. I also tried orient=9. Didn't make much difference in terms of validation accuracy.
+
+Actually the forum has a lot of valuable feedback on how you should choose you HOG parameters or what combinations are the most effective. So I didn't spend much time on parameters tunning. The SVM validation accuracy is above 98%. Good enough for me.
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+After I loaded my training data, I used `StandardScaler()` to normalize each column of the data. Before I splitted them into training set and validation set with a ratio of 80% to 20%, one more step was to shuffle the data.
+
+Then I trained a Linear SVM model on the training data and vbalidated it. If the validation accuracy is good, my code will pickle the model for future usage.
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+The code for sliding window is in the file `pipeline_helpers.py`. Method is called `one_shot_sliding_window` because together with other methods, for each image I want to draw bounding boxes on, I only extract the HOG features once.
 
-![alt text][image3]
+When doing sliding window on test images, I called `multi_scale_sliding_window()` in `pipeline.py`, which utilizes `one_shot_sliding_window()`.
+
+You can pass multiple scales and window size and search area associated with it to `multi_scale_sliding_window()`. Different scales correspond to different window scales. Because we trained SVM on a fixed number of features, which means a fixed number of pixels. Large window means more pixels which won't work with our classifier. So we need to shrink the image and use the fixed sized window to scan it, enlarge the window afterwards.
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+I scaled each image to 3 different sizes, effectively achieved 3 different sized windows. For the smallest window size I decided to slide it on a smaller region of the image than the other 2 sizes. Because cars close to the camera are too big for this small window size to be useful. It can help to reduce false-positive without losing true-positives.
 
-![alt text][image4]
+**Hard-Negative Mining**
+I explored the HNM technique. The problem is I don't have the data to do so.
+
+I referred to these two posts
+1. [HOG object detection](https://www.pyimagesearch.com/2014/11/10/histogram-oriented-gradients-object-detection/)
+2. [What is Hard-Negative Mining](https://www.reddit.com/r/computervision/comments/2ggc5l/what_is_hard_negative_mining_and_how_is_it/)
+
+When you have images with interested objects in it and they take 10% of the space of the image instead of 90%. Also you know the coordinates of the bounding boxes of the objects. In that case you are good to go with HNM. In our case we don't have that kind of dataset. The best chance is the [Udacity dataset](https://github.com/udacity/self-driving-car/tree/master/annotations), and it was reported erroneous in [this thread](https://discussions.udacity.com/t/udacity-dataset/395818/14)
+
+The method I employed is a simple one. I used `decision_function` that Linear SVC has to tell the confidence score of a classification. In general, true positive has a higher score than a false-positive. I used a threshold to rule out some positives with lower confidence score.
+
+Doing so will always risk losing some true-positives. And the best threshold to take is different for different dataset.
+
+Here is 3 of the resulting images. You can check out `./test_images` for more
+
+![alt text][image1]
+![alt test][image2]
+![alt text][image3]
+
 ---
 
 ### Video Implementation
@@ -106,3 +120,4 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
 
+[Slow Non-Maximum-Suppression](https://www.pyimagesearch.com/2014/11/17/non-maximum-suppression-object-detection-python/#)

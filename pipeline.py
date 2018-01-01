@@ -16,7 +16,7 @@ from importlib import reload
 %matplotlib inline
 
 colorspace = 'YUV'
-orient = 9
+orient = 11
 pix_per_cell = 16
 cell_per_block = 2
 hog_channel = "ALL"
@@ -127,9 +127,9 @@ def load_imgs():
 # print(np.min(image))
 # yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
 # print(type(np.max(yuv_image)))
-reload(ph)
+# reload(ph)
 clf, feat_scaler = load_model()
-image = mpimg.imread('./test_images/test1.jpg')
+image = mpimg.imread('./test_images/test6.jpg')
 bbimage = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
 # img_tosearch = ph.get_img_tosearch(image, 410, 650)
 # hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
@@ -158,3 +158,4 @@ bbimage = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, o
 # np.percentile(conf_scores_tp, 3)
 plt.figure(figsize=(16,16))
 plt.imshow(bbimage)
+cv2.imwrite('./output_images/bboxed_test6.jpg', cv2.cvtColor(bbimage, cv2.COLOR_RGB2BGR))

@@ -159,7 +159,7 @@ def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, scale,
       features = feat_scaler.transform(hog_features.reshape(1, -1))
       prediction = clf.predict(features)
 
-      if prediction == 1:
+      if prediction == 1 and clf.decision_function(features)[0] > 0.6:
         xleft_draw = np.int(xleft * scale)
         ytop_draw = np.int(ytop * scale)
         win_draw = np.int(window_size * scale)
