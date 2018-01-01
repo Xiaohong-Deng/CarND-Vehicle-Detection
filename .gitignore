@@ -5,3 +5,4 @@ images.p
 object-dataset/
 object-detection-crowdai/
 *.tar.gz
+nms.py

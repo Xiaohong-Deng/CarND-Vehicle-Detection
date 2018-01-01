@@ -198,3 +198,57 @@ def multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=9, 
     image = draw_boxes(image, bboxes)
 
   return image
+
+# Non-Maxima-Suppression for removing overlapped multiple detections
+# here we use one of the bounding boxes that overlap with each other
+# to represent that group of bounding boxes so we don't see overlapped
+# boxes in the image
+def non_max_suppression_slow(boxes, overlapThresh):
+  if len(boxes == 0):
+    return []
+
+  pick = []
+
+  x1 = boxes[:, 0]
+  y1 = boxes[:, 1]
+  x2 = boxes[:, 2]
+  y2 = boxes[:, 3]
+
+  area = (x2 - x1 + 1) * (y2 - y1 + 1)
+  idxs = np.argsort(y2)
+
+  while len(idxs) > 0:
+    # pick the last lower right y coordinate as the reference or the pivot
+    # compute overlapped area by comparing others to the one whose lower right
+    # y coordinate is the last one
+    last = len(idxs) - 1
+    i = idxs[last]
+    # i is the index of the bbox we pick to represent the overlapped bboxes in this round
+    pick.append(i)
+    suppress = [last]
+
+    # start compare overlapped area
+    for pos in range(last):
+      j = idxs[pos]
+
+      xx1 = max(x1[i], x1[j])
+      yy2 = max(y1[i], y1[j])
+      xx2 = min(x2[i], x2[j])
+      yy2 = min(y2[i], y2[j])
+
+      w = max(0, xx2 - xx1 + 1)
+      h = max(0, yy2 - yy1 + 1)
+
+      # ratio of overlapped area to referenced bbox
+      overlap = float(w * h) / area[j]
+
+      # if overlapped area is large enough, we suppress the bbox to be compared to ref
+      if overlap > overlapThresh:
+        suppress.append(pos)
+
+    # suppress contains indices of idxs, which contains indices of y2 in the ascending order with respect to
+    # y2 value. it means you remove all the overlapped bboxes found in this round and will not compare them
+    # in the following rounds
+    idxs = np.delete(idxs, suppress)
+
+  return boxes[pick]
