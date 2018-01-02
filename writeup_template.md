@@ -68,7 +68,7 @@ You can pass multiple scales and window size and search area associated with it 
 I scaled each image to 3 different sizes, effectively achieved 3 different sized windows. For the smallest window size I decided to slide it on a smaller region of the image than the other 2 sizes. Because cars close to the camera are too big for this small window size to be useful. It can help to reduce false-positive without losing true-positives.
 
 **Hard-Negative Mining**
-I explored the HNM technique. The problem is I don't have the data to do so.
+I explored the HNM technique, which is great for removing false-positives. The problem is I don't have the data to do so.
 
 I referred to these two posts
 1. [HOG object detection](https://www.pyimagesearch.com/2014/11/10/histogram-oriented-gradients-object-detection/)
