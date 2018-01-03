@@ -12,8 +12,8 @@ from skimage.feature import hog
 from sklearn.utils import shuffle
 import pipeline_helpers as ph
 from skimage.feature import hog
+from scipy.ndimage.measurements import label
 from moviepy.editor import VideoFileClip
-from importlib import reload
 import argparse
 # %matplotlib inline
 
@@ -24,9 +24,59 @@ cell_per_block = 2
 hog_channel = "ALL"
 block_per_row = 64 / pix_per_cell - cell_per_block + 1
 feat_per_sample = (block_per_row ** 2) * (cell_per_block ** 2) * orient
+# scale, (image search area, window) dictionary, values are 3-tuple containing search start, search end and window size
 scale_params = {1: (410, 506, 64), 1.5: (410, 650, 64), 2: (410, 650, 64)}
 
+class Box():
+  """
+  A class used to track the box information defined by heatmaps from the last n frames
+  """
+  def __init__(self):
+    # heatmaps for the last n frames
+    self.heatmaps = []
+    # sum of the last n heatmaps
+    self.acc_heatmap = None
+    # average of the last n heatmap
+    self.avg_heatmap = None
+
+def update_box(box, heatmap, n_frames):
+  """
+  Update Box() instance
+
+  Input
+  -----
+  box : the Box() instance needed to be updated
+
+  heatmap : heatmap matrix, likely to be the one for the current frame
+
+  n_frames : number of frames the Box() instance need to track, track the last n_frames frames
+  """
+  num_tracked_frames = len(box.heatmaps)
+
+  if num_tracked_frames == n_frames:
+    box.acc_heatmap -= box.heatmaps.pop(0)
+  box.heatmaps.append(heatmap)
+
+  if box.acc_heatmap is None:
+    box.acc_heatmap = heatmap
+    box.avg_heatmap = heatmap
+  else:
+    box.acc_heatmap += heatmap
+    if num_tracked_frames == n_frames:
+      box.avg_heatmap = box.acc_heatmap // n_frames
+    else:
+      box.avg_heatmap = box.acc_heatmap // (num_tracked_frames + 1)
+
 def load_model():
+  """
+  Load the Linear SVM classifier and the normalizer generated from the data used to train the classifier
+
+  Output
+  -----
+  clf : the Linear SVM classifier
+
+  feat_scaler : normalizer used to preprocess all the data fed to the classifier
+  """
   try:
     with open('model.p', mode='rb') as f:
       clf_params = pickle.load(f)
@@ -63,6 +113,22 @@ def load_model():
 
 # this method is used in hard-negative mining
 def conf_score_thresh(X, y_true, y_pred):
+  """
+  Return the proper threshold used to decide whether or not you should reject
+  a positive predicted by Linear SVM classifier
+
+  Input
+  -----
+  X: features fed to classifier to do the prediction
+
+  y_true : true labels associated with X
+
+  y_pred : predicted labels associated with X
+
+  Output
+  -----
+  thresh : a real number representing the confidence score of a prediction
+  """
   feat_fp = X[(y_pred - y_true)==1]
   feat_tp = X[(y_pred == 1) & (y_true == 1)]
   conf_scores_fp = clf.decision_function(feat_fp)
@@ -72,6 +138,13 @@ def conf_score_thresh(X, y_true, y_pred):
   return thresh
 
 def load_training_data():
+  """
+  Load all the HOG features of the training images and the labels of the images
+
+  Output
+  -----
+  features :
+  """
   imgs, labels = load_imgs()
 
   features = ph.extract_features(imgs, img_format='PNG', color_space=colorspace, orient=orient,
@@ -85,6 +158,13 @@ def load_training_data():
 # 8968 images of non-vehicles
 def get_img_fns(prefix='./vehicle-detection-vehicles/vehicles/',
                     subfolders=['GTI_Far', 'GTI_Left', 'GTI_MiddleClose', 'GTI_Right', 'KITTI_extracted']):
+  """
+  Extract all the image file names from the designated directory
+
+  Output
+  -----
+  img_fns : a list of image file names
+  """
   img_fns = []
 
   for sf in subfolders:
@@ -94,6 +174,15 @@ def get_img_fns(prefix='./vehicle-detection-vehicles/vehicles/',
   return img_fns
 
 def load_imgs():
+  """
+  Load all the image matrices and the corresponding labels
+
+  Output
+  -----
+  imgs : images in the form of numpy arrays
+
+  labels : labels that consists of 0 and 1, indicating car and non-car
+  """
   try:
     with open('images.p', mode='rb') as f:
       img_params = pickle.load(f)
@@ -125,41 +214,73 @@ def load_imgs():
   return imgs, labels
 
 def process_image(image, heat=False, heat_thresh=2):
-# image = cv2.imread('./vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png')
-# print(type(np.max(image)))
-# print(np.min(image))
-# yuv_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
-# print(type(np.max(yuv_image)))
-# reload(ph)
-  clf, feat_scaler = load_model()
-  bbimage = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, heat=heat, heat_thresh=heat_thresh, orient=orient,
-                                          pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
-  return bbimage
-# img_tosearch = ph.get_img_tosearch(image, 410, 650)
-# hogs = ph.get_image_hog(img_tosearch, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
-# bboxes = ph.one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, 410, pix_per_cell=pix_per_cell,
-#                                     cell_per_block=cell_per_block)
-# bbimg = ph.draw_boxes(image, bboxes)
-# filename = './vehicle-detection-vehicles/vehicles/GTI_Far/image0000.png'
-# image = mpimg.imread(filename)
-#
-# print(np.max(image))
-# scaled = np.uint8(image * 255)
-# print(scaled.shape)
-#
-# clf.decision_function().shape
-# features, labels = load_training_data()
-# features = feat_scaler.transform(features)
-# labels_pred = clf.predict(features)
+  """
+  Draw bounding boxes around cars in the images
 
-# conf_scores_fp = clf.decision_function(feat_fp)
-# conf_scores_tp = clf.decision_function(feat_tp)
-# print('mean confidence for false positives is: ', np.mean(conf_scores_fp))
-# print('median confidence for false positives is: ', np.median(conf_scores_fp))
-# print('median confidence for true positive is: ', np.median(conf_scores_tp))
-# print('min confidence for true positive is: ', np.min(conf_scores_tp))
-# np.percentile(conf_scores_fp, 60)
-# np.percentile(conf_scores_tp, 3)
+  Input
+  -----
+  image : raw image user wants to detect cars on
+
+  heat : whether or not use heatmaps to draw bounding boxes
+
+  heat_thresh : threshold used to decide if a pixel is false-positive
+
+  Output
+  -----
+  bbimage : the image identical to the input image except that detected cars have colored rectangle boxes around them
+  """
+  clf, feat_scaler = load_model()
+  bboxes = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=orient,
+                                          pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+  # either use heatmaps to shake off false-positives or not
+  if heat:
+    bbimage = ph.draw_heat_boxes(image, bboxes, heat_thresh)
+  else:
+    bbimage = ph.draw_boxes(image, bboxes)
+
+  return bbimage
+
+def process_frames(box=None, heat_thresh=1, n_frames=20):
+  """
+  Draw bounding boxes around cars in the video
+
+  Input
+  -----
+  box : a Box() instance
+
+  heat_thresh : heatmap threshold used on heatmap for a single frame
+
+  n_frames : number of frames the Box() instance should keep track of
+
+  Output
+  -----
+  process_frame : method used to process a single frame
+  """
+  if box is None:
+    box = Box()
+
+  def process_frame(image):
+    clf, feat_scaler = load_model()
+    bboxes = ph.multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=orient,
+                                            pix_per_cell=pix_per_cell, cell_per_block=cell_per_block)
+
+    heat = np.zeros_like(image[:, :, 0]).astype(np.float)
+    heat = ph.add_heat(heat, bboxes)
+
+    update_box(box, heat, n_frames)
+
+    # use a mix of average heatmap and the current frame heatmap to decide the bounding boxes
+    # for the current frame heatmap we first use heatmap on it to shake off false-positives
+    heatmap = (0.6 * box.avg_heatmap + 0.4 * ph.apply_threshold(np.copy(box.heatmaps[-1]), 2)).astype(np.int_)
+    heatmap[heatmap < heat_thresh] = 0
+
+    heatmap = np.clip(heatmap, 0, 255)
+    labels = label(heatmap)
+    draw_img = ph.draw_labeled_bboxes(np.copy(image), labels)
+
+    return draw_img
+
+  return process_frame
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -184,10 +305,10 @@ if __name__ == '__main__':
       count += 1
 
   if args.video:
-    clip = VideoFileClip("./test_video.mp4")
-    bbvideo = clip.fl_image(process_image)
+    clip = VideoFileClip("./project_video.mp4")
+    bbvideo = clip.fl_image(process_frames())
 
-    bbvideo.write_videofile('./bboxed_test_video.mp4', audio=False)
+    bbvideo.write_videofile('./bboxed_project_video.mp4', audio=False)
 
   if args.heatmap:
     fp = './test_images/*.jpg'
@@ -200,4 +321,3 @@ if __name__ == '__main__':
       out_img_name = './output_images/heat_bboxed_test' + str(count) + '.jpg'
       cv2.imwrite(out_img_name, cv2.cvtColor(bbimage, cv2.COLOR_RGB2BGR))
       count += 1
-  # image = mpimg.imread('./output_images/bboxed_test1.jpg')

@@ -6,6 +6,19 @@ from skimage.feature import hog
 from scipy.ndimage.measurements import label
 # Define a function to return HOG features and visualization
 def convert_color(img, conv='RGB2YCrCb'):
+  """
+  Convert image to specified color space
+
+  Input
+  -----
+  image : the input image
+
+  conv : specified source color space and the destinated color space
+
+  Output
+  -----
+  converted image
+  """
   if conv == 'RGB2YCrCb':
     return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
   if conv == 'BGR2YCrCb':
@@ -16,6 +29,25 @@ def convert_color(img, conv='RGB2YCrCb'):
     return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
 
 def get_img_tosearch(img, ystart, ystop, conv='RGB2YUV', img_format='JPG'):
+  """
+  Trim the image to keep the interested area only
+
+  Input
+  -----
+  img : the input image
+
+  ystart : starting y coordinate of the interested area in the input image
+
+  ystop : stopping y coordinate of the interested area in the input image
+
+  conv : specified source color space and the destinated color space
+
+  img_format : the format of the input image
+
+  Output
+  -----
+  img_tosearch : images trimmed down to the interested area only
+  """
   img_tosearch = img[ystart:ystop, :, :]
   if img_format == 'PNG':
     img_tosearch = np.uint8(img_tosearch * 255)
@@ -25,6 +57,23 @@ def get_img_tosearch(img, ystart, ystop, conv='RGB2YUV', img_format='JPG'):
 
 def get_image_hog(img_tosearch, orient=9,
                     pix_per_cell=8, cell_per_block=2):
+  """
+  Return HOG features of the input image
+
+  Input
+  -----
+  img_tosearch : the input image
+
+  orient : the number of bins for each cell
+
+  pix_per_cell : number of pixels per cell
+
+  cell_per_block : number of cells per block
+
+  Output
+  -----
+  hogs : flattenned HOG features from all 3 channels
+  """
 
   ch1 = img_tosearch[:, :, 0]
   ch2 = img_tosearch[:, :, 1]
@@ -39,6 +88,27 @@ def get_image_hog(img_tosearch, orient=9,
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block,
                         vis=False, feature_vec=True):
+  """
+  Extract HOG features from a single channel
+
+  Input
+  -----
+  img : single channel image
+
+  orient : the number of bins for each cell
+
+  pix_per_cell : number of pixels per cell
+
+  cell_per_block : number of cells per block
+
+  vis : boolean value used to decide if you want the HOG visulaized image
+
+  feature_vec : boolean value used to decide if you want flattenned HOG features
+
+  Output
+  -----
+  features : HOG features
+  """
   # Call with two outputs if vis==True
   if vis == True:
     features, hog_image = hog(img, orientations=orient,
@@ -82,6 +152,37 @@ def extract_features(imgs, img_format='JPG', color_space='RGB', spatial_size=(32
                         hist_bins=32, orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
                         spatial_feat=True, hist_feat=True, hog_feat=True):
+  """
+  Extract features ranged from bin spatial, color histogram and HOG
+
+  Input
+  -----
+  imgs : a list of input images
+
+  img_format : the format of input images
+
+  color_space : color space you want to convert the images to
+
+  spatial_size : the size you want to resize the images to
+
+  hist_bins : number of bins to apply to color histogram feature extraction
+
+  orient : the number of bins for each cell
+
+  pix_per_cell : number of pixels per cell
+
+  cell_per_block : number of cells per block
+
+  spatial_feat : boolean value used to decide if extract spatial features
+
+  hist_feat : boolean value used to decide if extract color histogram features
+
+  hog_feat : boolean value used to decide if extract HOG features
+
+  Output
+  -----
+  features : possibly mixed, flattenned features
+  """
     # Create a list to append feature vectors to
   features = []
   # Iterate through the list of images
@@ -132,6 +233,31 @@ def extract_features(imgs, img_format='JPG', color_space='RGB', spatial_size=(32
 
 def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, scale, window_size=64, pix_per_cell=8,
                               cell_per_block=2, cells_per_step=2):
+  """
+  Return bounding box coordinates for the input image based on the image HOG features
+
+  Input
+  -----
+  hogs : HOG features of the input image
+
+  img_tosearch : the input image
+
+  clf : Linear SVM classifier
+
+  feat_scaler : normalizer generated from the training data the classifier was trained on
+
+  ystart : the y coordinate where the method start slide the window on the original image, not img_tosearch
+
+  scale : the number used to scale the window size
+
+  window_size : the width and height of the sliding window
+
+  pix_per_cell : number of pixels per cell
+
+  cell_per_block : number of cells per block
+
+  cells_per_step : number of cells each time the method needs to cross when moving the window
+  """
   bboxes = []
 
   hog1, hog2, hog3 = hogs
@@ -171,6 +297,23 @@ def one_shot_sliding_window(hogs, img_tosearch, clf, feat_scaler, ystart, scale,
 
 # Define a function to draw bounding boxes
 def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+  """
+  Draw bounding boxes according to coordinates given
+
+  Input
+  -----
+  img : the input image
+
+  bboxes : a list of coordinates indicating the bounding boxes
+
+  color : bounding box color
+
+  thick : weight of bounding box
+
+  Output
+  -----
+  imcopy : a copy of the input image that has bounding boxes drawn
+  """
   # Make a copy of the image
   imcopy = np.copy(img)
   # Iterate through the bounding boxes
@@ -181,14 +324,45 @@ def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
   return imcopy
 
 def img_scaled(image, scale):
+  """
+  Return scaled image
+
+  Input
+  -----
+  image : the input image
+
+  scale : the scaling number applied to the input image
+  """
   imshape = image.shape
   img_resized = cv2.resize(image, (np.int(imshape[1] / scale), np.int(imshape[0] / scale)))
 
   return img_resized
 
 # scale params should be of the form {scale_coeff1: (ystart1, ystop1, window_size1), [scale_coeff2: (ystart, ystop, window_size2), ...]}
-def multi_scale_sliding_window(image, clf, feat_scaler, scale_params, heat=False,
-                                heat_thresh=2, orient=9, pix_per_cell=8, cell_per_block=2):
+def multi_scale_sliding_window(image, clf, feat_scaler, scale_params, orient=9, pix_per_cell=8, cell_per_block=2):
+  """
+  Apply sliding window multiple time with different window size and search area, return bounding box coordinates found
+
+  Input
+  -----
+  image : the input image
+
+  clf : Linear SVM classifier
+
+  feat_scaler : normalizer generated from the training data the classifier was trained on
+
+  scale_params : a dictionary in which scales are keys and (ystart, ystop, window_size) tuple are values
+
+  orient : the number of bins for each cell
+
+  pix_per_cell : number of pixels per cell
+
+  cell_per_block : number of cells per block
+
+  Output
+  -----
+  multi_bboxes : bounding box coordinates
+  """
   multi_bboxes = []
   for scale, params in scale_params.items():
     ystart, ystop, window_size = params[0], params[1], params[2]
@@ -200,13 +374,24 @@ def multi_scale_sliding_window(image, clf, feat_scaler, scale_params, heat=False
                                             cell_per_block=cell_per_block)
     multi_bboxes.extend(bboxes)
 
-  if heat:
-    draw_image = heat_boxed_image(image, multi_bboxes, heat_thresh)
-  else:
-    draw_image = draw_boxes(image, multi_bboxes)
-  return draw_image
+  return multi_bboxes
 
-def heat_boxed_image(image, bboxes, threshold):
+def draw_heat_boxes(image, bboxes, threshold):
+  """
+  Draw bounding boxes around detected objects according to heatmaps
+
+  Input
+  -----
+  image : the input image
+
+  bboxes : bounding box coordinates of the detect objects
+
+  threshold : heatmap threshold used to decide if a pixel is a false-positive
+
+  Output
+  -----
+  draw_img : a copy of the input image with bounding boxes drawn
+  """
   heat = np.zeros_like(image[:, :, 0]).astype(np.float)
   heat = add_heat(heat, bboxes)
   heat = apply_threshold(heat, threshold)
@@ -224,7 +409,7 @@ def add_heat(heatmap, bbox_list):
     heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
 
   # Return updated heatmap
-  return heatmap# Iterate through list of bboxes
+  return heatmap
 
 def apply_threshold(heatmap, threshold):
   # Zero out pixels below the threshold
@@ -257,6 +442,7 @@ def non_max_suppression_slow(boxes, overlapThresh):
 
   pick = []
 
+  # boxes in the form of np.array([[x1, y1, x2, y2], ...])
   x1 = boxes[:, 0]
   y1 = boxes[:, 1]
   x2 = boxes[:, 2]
